@@ -1,3 +1,5 @@
+# Image preprocessing for the AI model training
+
 ## Features
 - Convert filenames of every images to certain format based on time and uuid
 - Convert different format of images (e.g. jpeg, png, webp) to other format
@@ -22,3 +24,6 @@ convert_files(
   delete_source=False
 )
 ```
+
+## v2 updates
+os.walk() to iterate through the subdirectories
