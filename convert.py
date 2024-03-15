@@ -41,7 +41,13 @@ def convert_files(
     os.makedirs(dst_dir, exist_ok=True)
     src_dir = src_dir
 
-    total_file_count, success_count, skipped_count = 0, 0, 0
+    total_file_count, success_count, skipped_count, written_count, copied_count = (
+        0,
+        0,
+        0,
+        0,
+        0,
+    )
     file_count = sum(len(files) for _, _, files in os.walk(src_dir))
 
     with tqdm(
@@ -69,10 +75,15 @@ def convert_files(
                 total_file_count += 1
                 pbar.update(1)
 
-                if image_format:
+                determine_format = image_format
+                if src_ext == image_format:
+                    determine_format = None
+
+                if determine_format:
                     try:
                         img = iio.imread(src_path)
                         iio.imwrite(dst_path, img)
+                        written_count += 1
                         if delete_source:
                             os.remove(src_path)
                     except Exception as e:
@@ -86,6 +97,7 @@ def convert_files(
                             os.rename(src_path, dst_path)
                         else:
                             copyfile(src_path, dst_path)
+                        copied_count += 1
                     except:
                         logger.error(
                             f"Error copying file from {src_path} to {dst_path}: {e}"
@@ -94,6 +106,6 @@ def convert_files(
 
                 success_count += 1
 
-    message = f"Converted {success_count} images among {total_file_count} files. {skipped_count} files skipped."
+    message = f"Converted {success_count} images among {total_file_count} files. {skipped_count} files skipped. {written_count} files written {copied_count} files copied."
     logger.info(message)
     print(message)
