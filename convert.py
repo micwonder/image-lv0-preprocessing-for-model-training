@@ -1,111 +1,249 @@
-import uuid
-import os
-import datetime
-import imageio.v3 as iio
-from logger import Logger
-from shutil import copyfile
-from tqdm import tqdm
+(function () {
+  const iav = {};
 
+  const scriptTag =
+    document.currentScript ||
+    (() => {
+      const scripts = document.getElementsByTagName("script");
+      return scripts[scripts.length - 1];
+    })();
 
-def convert_files(
-    src_dir: str,
-    dst_dir: str = None,
-    image_format: str = None,
-    out_fname_format: str = "%d_%u",
-    delete_source: bool = False,
-    logger: Logger = Logger(),
-):
-    """Convert filenames of every images to uuid format.
+  const id =
+    scriptTag.id ||
+    (() => {
+      const src = scriptTag.src;
+      const url = new URL(src);
+      return url.searchParams.get("id");
+    })();
+  iav.sendRequest = function (props) {
+    const payload = JSON.stringify({ ...props, id: id, tf: "tr" });
+    const trackingURL = "https://t.webmetic.de/tr";
 
-    ### Function Arguments:
-     - src_dir: absolute path of source directory
-     - dst_dir `optional`: absolute path of destination directory; default = `src_dir`
-     - image_format `optional`: format of output image; defaults to save original format
-     - out_fname_format `optional`: template string for output image filename; defaults to `%d_%u`; `%u`: `uuid_v4`; `%d`: `timestamp`
-     - delete_source `optional`: delete source images; defaults to `False`
-     - logger `optional`: Logger for errors; default save logs to file
+    fetch(trackingURL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: payload,
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error();
+        }
+        return response.json();
+      })
+      .then(() => {})
+      .catch(() => {
+        if (typeof props.eventValue === "object") {
+          props.eventValue = JSON.stringify(props.eventValue);
+        }
+        props.tf = "png";
+        var baseURL = "https://t.webmetic.de/d.png";
+        var trackingURL = new URL(baseURL);
 
-    ### Sample Usage:
+        var params = new URLSearchParams(props);
+        trackingURL.search = params.toString();
 
-    ```python
-    convert_files(
-      src_dir="C:/Users/Admin/Pictures/sample",
-      dst_dir="c:/users/admin/pictures/normalized",
-      image_format="png",
-      out_fname_format="thermal_%d_%u",
-      delete_source=False
-    )
-    ```
-    """
-    dst_dir = dst_dir or src_dir
-    os.makedirs(dst_dir, exist_ok=True)
-    src_dir = src_dir
+        var img = new Image();
+        img.src = trackingURL.href;
+      });
+  };
+  iav.generateImg = function () {
+    return Math.round(2147483647 * Math.random()).toString();
+  };
 
-    total_file_count, success_count, skipped_count, written_count, copied_count = (
-        0,
-        0,
-        0,
-        0,
-        0,
-    )
-    file_count = sum(len(files) for _, _, files in os.walk(src_dir))
+  var maxScrollDepthReached = 0;
+  function getScrollDepth() {
+    var scrollY = "scrollY" in window ? window.scrollY : window.pageYOffset;
+    var viewportHeight =
+      "innerHeight" in window
+        ? window.innerHeight
+        : document.documentElement.clientHeight;
 
-    with tqdm(
-        total=file_count,
-        desc="Copying files" if not image_format else "Imwriting files",
-    ) as pbar:
-        for subdir, _, files in os.walk(src_dir):
-            for filename in files:
-                src_path = os.path.join(subdir, filename)
-                if not os.path.isfile(src_path):
-                    continue
+    return document.body
+      ? Math.floor(
+          ((scrollY + viewportHeight) / document.body.scrollHeight) * 100
+        )
+      : 0;
+  }
+  function updateMaxScrollDepth() {
+    var currentScrollDepth = getScrollDepth();
+    if (currentScrollDepth > maxScrollDepthReached) {
+      maxScrollDepthReached = currentScrollDepth;
+    }
+  }
 
-                _, src_ext = os.path.splitext(filename)
-                dst_ext = f".{image_format}" if image_format else src_ext
-                dst_filename = out_fname_format.replace(
-                    "%u", str(uuid.uuid4())
-                ).replace("%d", str(datetime.datetime.now().timestamp()))
-                dst_filename += dst_ext
+  function debounce(func, delay) {
+    let debounceTimer;
+    return function () {
+      const context = this;
+      const args = arguments;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => func.apply(context, args), delay);
+    };
+  }
+  function handleInputEvent(event) {
+    var iE = event.target;
+    var iV = iE.value.trim();
+    var dR =
+      /\b(?:http:\/\/www\.|https:\/\/www\.|http:\/\/|https:\/\/)?([a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5})(?:\/|$)/i;
+    var eR = /@([\w.-]+\.[a-zA-Z]{2,6})$/i;
+    var eM = iV.match(eR);
+    var dM = eM ? null : iV.match(dR);
+    var d = dM ? dM[1] : null;
+    var e = eM ? eM[1] : null;
+    if (d || e) {
+      var iED = {
+        event_name: d ? "doInput" : "emInput",
+        event_value: d || e,
+        elementClass: iE.className,
+        parentElementInfo: `${iE.parentElement.tagName}#${iE.parentElement.id}`,
+        xpath: getXPathForElement(iE),
+        viewportX: iE.getBoundingClientRect().left,
+        viewportY: iE.getBoundingClientRect().top,
+      };
+      iav.sendEvent(iED.e_n, iED);
+    }
+  }
 
-                updated_src = os.path.join(subdir, dst_filename)
-                relative_path = os.path.relpath(updated_src, src_dir)
-                dst_path = os.path.join(dst_dir, relative_path)
+  window.addEventListener("load", function () {
+    document.addEventListener("click", handleClickEvent);
+    document.addEventListener("touchend", handleClickEvent);
 
-                os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-                total_file_count += 1
-                pbar.update(1)
+    const inputs = document.getElementsByTagName("input");
+    for (let i = 0; i < inputs.length; i++) {
+      inputs[i].addEventListener("blur", debounce(handleInputEvent, 200));
+      inputs[i].addEventListener("change", debounce(handleInputEvent, 200));
+      inputs[i].addEventListener("touchend", debounce(handleInputEvent, 200));
+    }
 
-                determine_format = image_format
-                if src_ext == image_format:
-                    determine_format = None
+    var scrollStopTimer = null;
+    var throttleTime = 250;
+    function sendMaxScrollDepth() {
+      var scrollDepthDetails = {
+        eventScroll: "maxScrollDepth",
+        sde: maxScrollDepthReached,
+        bu: window.location.origin,
+        dl: document.location.href,
+        ua: navigator.userAgent,
+        sr: `${screen.width}x${screen.height}`,
+      };
+      iav.sendRequest(scrollDepthDetails);
+    }
 
-                if determine_format:
-                    try:
-                        img = iio.imread(src_path)
-                        iio.imwrite(dst_path, img)
-                        written_count += 1
-                        if delete_source:
-                            os.remove(src_path)
-                    except Exception as e:
-                        logger.error(f"Error processing image {src_path}: {e}")
-                        skipped_count += 1
-                        continue
+    function handleScroll() {
+      updateMaxScrollDepth();
+      if (scrollStopTimer) {
+        clearTimeout(scrollStopTimer);
+      }
+      scrollStopTimer = setTimeout(sendMaxScrollDepth, throttleTime);
+    }
 
-                else:
-                    try:
-                        if delete_source:
-                            os.rename(src_path, dst_path)
-                        else:
-                            copyfile(src_path, dst_path)
-                        copied_count += 1
-                    except:
-                        logger.error(
-                            f"Error copying file from {src_path} to {dst_path}: {e}"
-                        )
-                        continue
+    window.addEventListener("scroll", handleScroll);
+    prepareTrackingData("page_load");
+  });
 
-                success_count += 1
+  function prepareTrackingData(eventType, additionalData) {
+    additionalData = additionalData || {};
+    var props = {
+      v: 1,
+      aid: id,
+      t: eventType,
+      bu: window.location.origin,
+      ul: window.navigator.userLanguage || window.navigator.language,
+      cd: screen.colorDepth + "-bit",
+      sr: screen.width + "x" + screen.height,
+      de: document.characterSet,
+      dl: document.location.href,
+      dt: document.title,
+      dr: document.referrer,
+      ua: navigator.userAgent,
+      ep: document.location.pathname,
+      vp: window.innerWidth + "x" + window.innerHeight,
+      ce: navigator.cookieEnabled,
+      ct: navigator.connection ? navigator.connection.effectiveType : "unknown",
+      sd: getScrollDepth(),
+      cs:
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light",
+      pl: navigator.platform || "Unknown",
+    };
 
-    message = f"Converted {success_count} images among {total_file_count} files. {skipped_count} files skipped. {written_count} files written {copied_count} files copied."
-    logger.info(message)
-    print(message)
+    for (var key in additionalData) {
+      if (additionalData.hasOwnProperty(key)) {
+        props[key] = additionalData[key];
+      }
+    }
+
+    if (props.eventValue === "" || typeof props.eventValue === "undefined") {
+      delete props.eventValue;
+    }
+
+    if (props.link_url === "" || typeof props.link_url === "undefined") {
+      delete props.link_url;
+    }
+    iav.sendRequest(props);
+  }
+
+  iav.sendEvent = function (name, value, link_url = "") {
+    var eventDetails = {
+      eventName: name,
+      eventValue: value,
+      link_url: link_url,
+    };
+    prepareTrackingData("interaction", eventDetails);
+  };
+
+  function handleClickEvent(event) {
+    var clickedElement = event.target;
+
+    var link_url =
+      clickedElement.tagName.toLowerCase() === "a" ? clickedElement.href : "";
+    var elementClass = clickedElement.className;
+    var parentElementInfo = clickedElement.parentElement
+      ? `${clickedElement.parentElement.tagName}#${clickedElement.parentElement.id}`
+      : "No parent element";
+
+    var xpath = getXPathForElement(clickedElement);
+    var viewportX = clickedElement.getBoundingClientRect().left;
+    var viewportY = clickedElement.getBoundingClientRect().top;
+
+    var newEvent = {
+      event_name: "click",
+      event_value: `${clickedElement.tagName}#${clickedElement.id}`,
+      link_url: link_url,
+      elementclass: elementClass,
+      parentelementinfo: parentElementInfo,
+      xpath: xpath,
+      viewportx: viewportX,
+      viewporty: viewportY,
+    };
+    iav.sendEvent("click", newEvent);
+  }
+
+  document.addEventListener("focusin", function (event) {
+    var focusEventDetails = {
+      event_name: "focus",
+      event_value: event.target.tagName + "#" + event.target.id,
+      elementclass: event.target.className,
+      parentelementinfo: `${event.target.parentElement.tagName}#${event.target.parentElement.id}`,
+      xpath: getXPathForElement(event.target),
+      viewportx: event.target.getBoundingClientRect().left,
+      viewporty: event.target.getBoundingClientRect().top,
+    };
+    iav.sendEvent("focus", focusEventDetails);
+  });
+  function getXPathForElement(el) {
+    var xpath = el.tagName;
+    var parent = el.parentElement;
+    while (parent) {
+      xpath = `${parent.tagName}/${xpath}`;
+      parent = parent.parentElement;
+    }
+    return xpath;
+  }
+
+  prepareTrackingData("page_load");
+})();
